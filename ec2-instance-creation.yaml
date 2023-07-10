@@ -1,0 +1,13 @@
+Resources:
+  MyEC2Instance:
+    Type: AWS::EC2::Instance
+    Properties:
+      ImageId: ami-xxxxxxxxxx  # Specify the desired AMI ID
+      InstanceType: t2.micro   # Specify the instance type
+      KeyName: my-key-pair    # Specify the key pair name for SSH access
+      SecurityGroupIds:
+        - sg-xxxxxxxxxx       # Specify the security group ID(s) for the instance
+      SubnetId: subnet-xxxxxxxxxx  # Specify the subnet ID where the instance should be launched
+      UserData: |
+        #!/bin/bash
+        echo "Hello, EC2 instance!" > /var/www/html/index.html   # Specify any desired user data for EC2 instance configuration
