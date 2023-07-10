@@ -1,0 +1,24 @@
+Resources:
+  MyS3Bucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: my-s3-bucket
+
+  MyS3Folder:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub ${MyS3Bucket}.my-folder
+      AccessControl: Private
+
+  MyBucketPolicy:
+    Type: AWS::IAM::Policy
+    Properties:
+      PolicyName: MyS3BucketPolicy
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Action:
+              - s3:GetObject
+              - s3:PutObject
+            Resource: !Sub arn:aws:s3:::${MyS3Bucket}/*
