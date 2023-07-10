@@ -1,0 +1,57 @@
+Resources:
+  MySSHKeyPair:
+    Type: AWS::CloudFormation::CustomResource
+    Properties:
+      ServiceToken: !GetAtt MyCustomResourceLambda.Arn
+      PublicKeyParameterName: /my-stack/ssh-public-key
+      PrivateKeyParameterName: /my-stack/ssh-private-key
+      KeyPairName: my-key-pair
+
+  MyCustomResourceLambda:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: my-custom-resource
+      Handler: index.handler
+      Runtime: python3.8
+      Timeout: 30
+      Role: !GetAtt MyCustomResourceLambdaRole.Arn
+      Code:
+        ZipFile: |
+          import boto3
+          import os
+          import json
+
+          def handler(event, context):
+              ec2_client = boto3.client('ec2')
+              key_pair_name = event['ResourceProperties']['KeyPairName']
+              response = ec2_client.create_key_pair(KeyName=key_pair_name)
+              public_key = response['KeyMaterial']
+
+              ssm_client = boto3.client('ssm')
+              public_key_param = event['ResourceProperties']['PublicKeyParameterName']
+              private_key_param = event['ResourceProperties']['PrivateKeyParameterName']
+              ssm_client.put_parameter(Name=public_key_param, Value=public_key, Type='SecureString', Overwrite=True)
+              ssm_client.put_parameter(Name=private_key_param, Value=key_pair_name, Type='SecureString', Overwrite=True)
+
+              return {'PublicKeyName': public_key_param, 'PrivateKeyKeyName': private_key_param}
+  
+  MyCustomResourceLambdaRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: my-custom-resource-lambda-role
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: ssm-parameter-write-access
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action:
+                  - ssm:PutParameter
+                Resource: !Sub "arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/${MySSHKeyPair}*"
