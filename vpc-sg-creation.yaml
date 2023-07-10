@@ -1,0 +1,14 @@
+Resources:
+  MySecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: My Security Group
+      VpcId: vpc-xxxxxxxxxx  # Specify the ID of the VPC where the security group will be created
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          CidrIp: 0.0.0.0/0   # Allow inbound traffic on port 80 from any IP
+      Tags:
+        - Key: Name
+          Value: my-security-group
