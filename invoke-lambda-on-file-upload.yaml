@@ -1,0 +1,72 @@
+Resources:
+  MyLambdaFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: my-lambda-function
+      Runtime: python3.8
+      Handler: index.lambda_handler
+      Role: !GetAtt MyLambdaExecutionRole.Arn
+      Code:
+        ZipFile: |
+          import boto3
+          import json
+
+          def lambda_handler(event, context):
+              s3_client = boto3.client('s3')
+              textract_client = boto3.client('textract')
+              destination_bucket = 'my-output-bucket'
+              destination_folder = 'extracted-text'
+
+              for record in event['Records']:
+                  bucket = record['s3']['bucket']['name']
+                  key = record['s3']['object']['key']
+                  if key.endswith('.png'):
+                      response = textract_client.start_document_text_detection(
+                          DocumentLocation={
+                              'S3Object': {
+                                  'Bucket': bucket,
+                                  'Name': key
+                              }
+                          }
+                      )
+                      job_id = response['JobId']
+                      response = textract_client.get_document_text_detection(JobId=job_id)
+                      text = response['Blocks']
+                      output_key = f'{destination_folder}/{key}.txt'
+                      s3_client.put_object(
+                          Body=json.dumps(text),
+                          Bucket=destination_bucket,
+                          Key=output_key
+                      )
+
+  MyLambdaExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: my-lambda-execution-role
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+
+  MyS3Bucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: my-input-bucket
+      NotificationConfiguration:
+        LambdaConfigurations:
+          - Event: s3:ObjectCreated:Put
+            Filter:
+              S3Key:
+                Rules:
+                  - Name: suffix
+                    Value: .png
+            Function: !GetAtt MyLambdaFunction.Arn
+
+Outputs:
+  MyOutputBucket:
+    Value: !Ref MyS3Bucket
